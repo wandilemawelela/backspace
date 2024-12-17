@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
-import './App.css';
+import React, { useState } from "react";
+import "./App.css";
 
 function App() {
-  const [code, setCode] = useState('');
-  const [output, setOutput] = useState('');
-  const [language, setLanguage] = useState('javascript');
+  const [code, setCode] = useState("");
+  const [output, setOutput] = useState("");
+  const [language, setLanguage] = useState("javascript");
 
   const runCode = async () => {
-    const response = await fetch('http://localhost:3001/code/run', {
-      method: 'POST',
+    const backendUrl =
+      process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
+    const response = await fetch(`${backendUrl}/code/run`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ language, code }),
     });
@@ -28,7 +30,12 @@ function App() {
           <option value="python">Python</option>
           {/* Add more options as needed */}
         </select>
-        <textarea value={code} onChange={(e) => setCode(e.target.value)} rows="10" cols="50" />
+        <textarea
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          rows="10"
+          cols="50"
+        />
         <button onClick={runCode}>Run Code</button>
         <pre>{output}</pre>
       </header>
@@ -37,4 +44,3 @@ function App() {
 }
 
 export default App;
-
