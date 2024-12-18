@@ -6,65 +6,61 @@ const docker = new Docker();
 router.post("/run", async (req, res) => {
   const { language, code } = req.body;
 
-  // Map language to Docker image
   const images = {
-    javascript: "node:14",
-    python: "python:3.8",
-    // Add more languages as needed
+    javascript: { image: "node:14" },
+    python: { image: "python:3.8" },
   };
 
   if (!images[language]) {
     return res.status(400).json({ error: "Unsupported language" });
   }
 
-  const image = images[language];
-  const scriptPath = "/usr/src/app/script";
+  const { image } = images[language];
 
-  const container = await docker.createContainer({
-    Image: image,
-    Cmd: [
-      "bash",
-      "-c",
-      `echo "${code}" > ${scriptPath} && ${getRunCommand(
-        language,
-        scriptPath
-      )}`,
-    ],
-    Tty: false,
-  });
+  try {
+    const container = await docker.createContainer({
+      Image: image,
+      Cmd:
+        language === "python" ? ["python", "-c", code] : ["node", "-e", code],
+      Tty: false,
+      HostConfig: {
+        AutoRemove: true,
+      },
+    });
 
-  await container.start();
+    await container.start();
 
-  container.logs(
-    { stdout: true, stderr: true, follow: true },
-    (err, stream) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
+    const stream = await container.logs({
+      follow: true,
+      stdout: true,
+      stderr: true,
+    });
 
-      let output = "";
-      stream.on("data", (data) => {
-        output += data.toString();
+    let output = "";
+
+    await new Promise((resolve, reject) => {
+      stream.on("data", (chunk) => {
+        // Remove control characters and convert to string
+        output += chunk
+          .toString("utf8")
+          .replace(/[\u0000-\u0008\u000B-\u001F]/g, "");
       });
 
-      stream.on("end", () => {
-        container.remove();
-        res.json({ output });
-      });
-    }
-  );
-});
+      stream.on("end", resolve);
+      stream.on("error", reject);
+    });
 
-function getRunCommand(language, scriptPath) {
-  switch (language) {
-    case "javascript":
-      return `node ${scriptPath}`;
-    case "python":
-      return `python ${scriptPath}`;
-    // Add more languages as needed
-    default:
-      return "";
+    res.json({
+      output: output.trim(),
+      success: true,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: error.message,
+      success: false,
+    });
   }
-}
+});
 
 module.exports = router;
