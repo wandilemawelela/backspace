@@ -1,0 +1,16 @@
+{"containerId":"116fd89b8abbd02a5450e8ed2ab36bd7d63e97b2fd8da0fc012d100ae2f6fc80","error":"(HTTP code 304) container already stopped -  ","level":"error","message":"Container cleanup failed"}
+{"duration":2.308,"error":"Cannot read property 'usage' of undefined","language":"python","level":"error","message":"Code execution failed"}
+{"duration":2.312,"language":"python","level":"info","message":"Code execution completed","status":500}
+{"containerId":"2f979f48f11e47569cc7aaa9c4b77d4eccea6dd7b7c0d084b899c405af0c561b","error":"(HTTP code 404) no such container - No such container: 2f979f48f11e47569cc7aaa9c4b77d4eccea6dd7b7c0d084b899c405af0c561b ","level":"error","message":"Container cleanup failed"}
+{"duration":1.53,"error":"Value is not a valid number: undefined","language":"python","level":"error","message":"Code execution failed"}
+{"duration":1.535,"language":"python","level":"info","message":"Code execution completed","status":500}
+{"containerId":"6b8bdcb5cd29477274f28d60a8af07a1d35e9c6d8af30b8b08de7746250d8a6f","error":"(HTTP code 409) unexpected - removal of container 6b8bdcb5cd29477274f28d60a8af07a1d35e9c6d8af30b8b08de7746250d8a6f is already in progress ","level":"error","message":"Container cleanup failed"}
+{"duration":16.161,"error":"Code execution timed out","language":"python","level":"error","message":"Code execution failed"}
+{"duration":16.162,"language":"python","level":"info","message":"Code execution completed","status":408}
+{"containerId":"3e92d75eb1f0e65a73d91cecd96dc9069695186527366b627a542cf770989b0a","error":"(HTTP code 304) container already stopped -  ","level":"error","message":"Container cleanup failed"}
+{"duration":1.618,"error":"Cannot read property 'usage' of undefined","language":"python","level":"error","message":"Code execution failed"}
+{"duration":1.62,"language":"python","level":"info","message":"Code execution completed","status":500}
+{"duration":1.963,"language":"python","level":"info","message":"Code execution completed","status":200}
+{"duration":9.69,"error":"Code execution timed out","language":"python","level":"error","message":"Code execution failed"}
+{"duration":9.692,"language":"python","level":"info","message":"Code execution completed","status":408}
+{"duration":2.03,"language":"python","level":"info","message":"Code execution completed","status":200}
