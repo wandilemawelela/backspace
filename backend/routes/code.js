@@ -1,3 +1,19 @@
+// routes/code.js
+const express = require("express");
+const Docker = require("dockerode");
+const promClient = require("prom-client");
+const {
+  validateCode,
+  validate,
+  TIMEOUT_MS,
+} = require("../middleware/validator");
+const { metrics, logger } = require("../services/monitoring");
+const { monitorExecution } = require("../middleware/monitoring");
+const { calculateCPUPercent } = require("../utils/metrics");
+
+const router = express.Router();
+const docker = new Docker();
+
 /**
  * @swagger
  * /code/run:
@@ -18,31 +34,7 @@
  *                 enum: [python, javascript]
  *               code:
  *                 type: string
- *     responses:
- *       200:
- *         description: Code executed successfully
- *       400:
- *         description: Invalid input
- *       408:
- *         description: Execution timeout
- *       500:
- *         description: Server error
  */
-
-const express = require("express");
-const Docker = require("dockerode");
-const {
-  validateCode,
-  validate,
-  TIMEOUT_MS,
-} = require("../middleware/validator");
-const { metrics, logger } = require("../services/monitoring");
-const { monitorExecution } = require("../middleware/monitoring");
-const { calculateCPUPercent } = require("../utils/metrics");
-
-const router = express.Router();
-const docker = new Docker();
-
 router.post(
   "/run",
   validateCode,
@@ -54,8 +46,8 @@ router.post(
     const startTime = Date.now();
 
     const images = {
-      javascript: { image: "node:14" },
-      python: { image: "python:3.8" },
+      javascript: { image: "node:14", memoryLimit: 100 * 1024 * 1024 },
+      python: { image: "python:3.8", memoryLimit: 100 * 1024 * 1024 },
     };
 
     try {
@@ -65,38 +57,15 @@ router.post(
           language === "python" ? ["python", "-c", code] : ["node", "-e", code],
         Tty: false,
         HostConfig: {
-          AutoRemove: false, // Changed to false for proper cleanup
-          Memory: 100 * 1024 * 1024,
+          AutoRemove: false,
+          Memory: images[language].memoryLimit,
           NanoCPUs: 1e9,
           NetworkMode: "none",
+          OomKillDisable: false,
         },
       });
 
       await container.start();
-
-      // Wait for container to initialize
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      try {
-        const stats = await container.stats({ stream: false });
-        if (stats && stats.memory_stats && stats.cpu_stats) {
-          metrics.memoryUsage
-            .labels(container.id)
-            .set(stats.memory_stats.usage || 0);
-          metrics.cpuUsage.labels(container.id).set(calculateCPUPercent(stats));
-        }
-      } catch (statsError) {
-        logger.warn("Failed to collect container stats", {
-          error: statsError.message,
-        });
-      }
-
-      let timeoutId;
-      const timeoutPromise = new Promise((_, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error("Code execution timed out"));
-        }, TIMEOUT_MS);
-      });
 
       const stream = await container.logs({
         follow: true,
@@ -105,13 +74,36 @@ router.post(
       });
 
       let output = "";
+      let hasError = false;
+      let timeoutId;
+
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error("Code execution timed out"));
+        }, TIMEOUT_MS);
+      });
+
       try {
         await Promise.race([
           new Promise((resolve, reject) => {
             stream.on("data", (data) => {
-              output += data
-                .toString("utf8")
-                .replace(/[\u0000-\u0008\u000B-\u001F]/g, "");
+              const chunk = data.toString("utf8");
+              const errorPatterns = [
+                "SyntaxError",
+                "ReferenceError",
+                "MemoryError",
+                "JavaScript heap out of memory",
+                "Killed",
+                "allocation failed",
+                "MemoryError",
+                "OutOfMemoryError",
+              ];
+
+              if (errorPatterns.some((pattern) => chunk.includes(pattern))) {
+                hasError = true;
+                reject(new Error("Memory limit exceeded or runtime error"));
+              }
+              output += chunk.replace(/[\u0000-\u0008\u000B-\u001F]/g, "");
             });
             stream.on("end", resolve);
             stream.on("error", reject);
@@ -120,6 +112,10 @@ router.post(
         ]);
 
         clearTimeout(timeoutId);
+
+        if (hasError) {
+          throw new Error("Execution failed");
+        }
 
         const duration = (Date.now() - startTime) / 1000;
         metrics.executionDuration.labels(language).observe(duration);
@@ -135,11 +131,9 @@ router.post(
         throw error;
       }
     } catch (error) {
-      // Enhanced cleanup
       if (container) {
         try {
           await container.stop({ t: 0 });
-          await new Promise((resolve) => setTimeout(resolve, 1000));
           await container.remove({ force: true });
         } catch (cleanupError) {
           logger.error("Container cleanup failed", {
@@ -158,13 +152,17 @@ router.post(
         duration,
       });
 
-      const status = error.message.includes("timed out") ? 408 : 500;
-      res.status(status).json({
+      res.status(500).json({
         success: false,
         error: error.message,
       });
     }
   }
 );
+
+router.get("/metrics", async (req, res) => {
+  res.set("Content-Type", promClient.register.contentType);
+  res.end(await promClient.register.metrics());
+});
 
 module.exports = router;
