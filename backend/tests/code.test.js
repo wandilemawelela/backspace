@@ -1,83 +1,124 @@
-// backend/tests/code.test.js
 const request = require("supertest");
 const express = require("express");
 const Docker = require("dockerode");
-const codeRouter = require("../routes/code");
+const codeRouter = require("..routes/code");
 
-const app = express();
-const docker = new Docker();
-app.use(express.json());
-app.use("/code", codeRouter);
+describe("Code Execution Service", () => {
+  let app;
+  let server;
+  const docker = new Docker();
 
-describe("Code Execution API", () => {
-  jest.setTimeout(30000); // Increase global timeout
+  beforeAll(() => {
+    app = express();
+    app.use(express.json());
+    app.use("/code", codeRouter);
+    server = app.listen(0);
+  });
 
-  const cleanupContainers = async () => {
-    try {
-      const containers = await docker.listContainers({ all: true });
-      await Promise.all(
-        containers.map(async (container) => {
-          const containerInstance = docker.getContainer(container.Id);
-          try {
-            await containerInstance.stop();
-          } catch (error) {
-            // Container may already be stopped
-          }
-          try {
-            await containerInstance.remove({ force: true });
-          } catch (error) {
-            // Container may already be removed
-          }
-        })
-      );
-    } catch (error) {
-      console.error("Cleanup error:", error);
-    }
-  };
+  afterAll((done) => {
+    docker
+      .listContainers({ all: true })
+      .then((containers) => {
+        return Promise.all(
+          containers.map((container) =>
+            docker.getContainer(container.Id).remove({ force: true })
+          )
+        );
+      })
+      .then(() => server.close(done))
+      .catch(done);
+  });
 
-  beforeAll(async () => {
-    await cleanupContainers();
-  }, 30000);
+  describe("Language Support", () => {
+    test("executes Python code successfully", async () => {
+      const response = await request(app).post("/code/run").send({
+        language: "python",
+        code: 'print("Hello, World!")',
+      });
 
-  afterEach(async () => {
-    await cleanupContainers();
-  }, 30000);
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.output.trim()).toBe("Hello, World!");
+    }, 30000);
 
-  afterAll(async () => {
-    await cleanupContainers();
-    // Close Docker connection
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }, 30000);
+    test("executes JavaScript code successfully", async () => {
+      const response = await request(app).post("/code/run").send({
+        language: "javascript",
+        code: 'console.log("Hello, World!")',
+      });
 
-  test("should execute Python code successfully", async () => {
-    const response = await request(app).post("/code/run").send({
-      language: "python",
-      code: 'print("Hello, World!")',
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.output.trim()).toBe("Hello, World!");
+    }, 30000);
+  });
+
+  describe("Error Handling", () => {
+    test("handles syntax errors in Python", async () => {
+      const response = await request(app).post("/code/run").send({
+        language: "python",
+        code: 'print("Unclosed string',
+      });
+
+      expect(response.status).toBe(500);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain("SyntaxError");
+    }, 30000);
+
+    test("handles syntax errors in JavaScript", async () => {
+      const response = await request(app).post("/code/run").send({
+        language: "javascript",
+        code: 'console.log("Unclosed string',
+      });
+
+      expect(response.status).toBe(500);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain("SyntaxError");
+    }, 30000);
+  });
+
+  describe("Resource Limits", () => {
+    test("handles infinite loops with timeout", async () => {
+      const response = await request(app).post("/code/run").send({
+        language: "python",
+        code: "while True: pass",
+      });
+
+      expect(response.status).toBe(408);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain("timed out");
+    }, 30000);
+
+    test("handles memory limits", async () => {
+      const response = await request(app).post("/code/run").send({
+        language: "python",
+        code: 'x = ["x" * 1000000 for _ in range(1000000)]',
+      });
+
+      expect(response.status).toBe(500);
+      expect(response.body.success).toBe(false);
+    }, 30000);
+  });
+
+  describe("Input Validation", () => {
+    test("rejects unsupported languages", async () => {
+      const response = await request(app).post("/code/run").send({
+        language: "ruby",
+        code: 'puts "Hello"',
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.errors[0].msg).toBe("Unsupported language");
     });
 
-    expect(response.statusCode).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.output.trim()).toBe("Hello, World!");
-  }, 30000);
+    test("rejects empty code", async () => {
+      const response = await request(app).post("/code/run").send({
+        language: "python",
+        code: "",
+      });
 
-  test("should execute JavaScript code successfully", async () => {
-    const response = await request(app).post("/code/run").send({
-      language: "javascript",
-      code: 'console.log("Hello, World!")',
+      expect(response.status).toBe(400);
+      expect(response.body.errors[0].msg).toBe("Code cannot be empty");
     });
-
-    expect(response.statusCode).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.output.trim()).toBe("Hello, World!");
-  }, 30000);
-
-  test("should handle unsupported language", async () => {
-    const response = await request(app).post("/code/run").send({
-      language: "invalid",
-      code: 'print("Hello")',
-    });
-
-    expect(response.statusCode).toBe(400);
-    expect(response.body.error).toBe("Unsupported language");
-  }, 30000);
+  });
 });

@@ -1,31 +1,42 @@
 const express = require("express");
 const Docker = require("dockerode");
+const {
+  validateCode,
+  validate,
+  TIMEOUT_MS,
+} = require("../middleware/validator");
+
 const router = express.Router();
 const docker = new Docker();
 
-router.post("/run", async (req, res) => {
+router.post("/run", validateCode, validate, async (req, res) => {
   const { language, code } = req.body;
+  let container = null;
 
   const images = {
     javascript: { image: "node:14" },
     python: { image: "python:3.8" },
   };
 
-  if (!images[language]) {
-    return res.status(400).json({ error: "Unsupported language" });
-  }
-
-  const { image } = images[language];
-
   try {
-    const container = await docker.createContainer({
-      Image: image,
+    container = await docker.createContainer({
+      Image: images[language].image,
       Cmd:
         language === "python" ? ["python", "-c", code] : ["node", "-e", code],
       Tty: false,
       HostConfig: {
         AutoRemove: true,
+        Memory: 100 * 1024 * 1024, // 100MB memory limit
+        NanoCPUs: 1e9, // 1 CPU
+        NetworkMode: "none", // Disable network access
       },
+    });
+
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error("Code execution timed out"));
+      }, TIMEOUT_MS);
     });
 
     await container.start();
@@ -37,28 +48,43 @@ router.post("/run", async (req, res) => {
     });
 
     let output = "";
+    try {
+      await Promise.race([
+        new Promise((resolve, reject) => {
+          stream.on("data", (data) => {
+            output += data
+              .toString("utf8")
+              .replace(/[\u0000-\u0008\u000B-\u001F]/g, "");
+          });
+          stream.on("end", resolve);
+          stream.on("error", reject);
+        }),
+        timeoutPromise,
+      ]);
 
-    await new Promise((resolve, reject) => {
-      stream.on("data", (chunk) => {
-        // Remove control characters and convert to string
-        output += chunk
-          .toString("utf8")
-          .replace(/[\u0000-\u0008\u000B-\u001F]/g, "");
+      clearTimeout(timeoutId);
+      res.json({
+        success: true,
+        output: output.trim(),
       });
-
-      stream.on("end", resolve);
-      stream.on("error", reject);
-    });
-
-    res.json({
-      output: output.trim(),
-      success: true,
-    });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      error: error.message,
+    if (container) {
+      try {
+        await container.stop();
+        await container.remove({ force: true });
+      } catch (cleanupError) {
+        console.error("Container cleanup error:", cleanupError);
+      }
+    }
+
+    const status = error.message.includes("timed out") ? 408 : 500;
+    res.status(status).json({
       success: false,
+      error: error.message,
     });
   }
 });
