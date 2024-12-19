@@ -1,3 +1,34 @@
+/**
+ * @swagger
+ * /code/run:
+ *   post:
+ *     summary: Execute code in isolated container
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - language
+ *               - code
+ *             properties:
+ *               language:
+ *                 type: string
+ *                 enum: [python, javascript]
+ *               code:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Code executed successfully
+ *       400:
+ *         description: Invalid input
+ *       408:
+ *         description: Execution timeout
+ *       500:
+ *         description: Server error
+ */
+
 const express = require("express");
 const Docker = require("dockerode");
 const {
