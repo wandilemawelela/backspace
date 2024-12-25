@@ -1,110 +1,193 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Editor from "@monaco-editor/react";
-import { Box, Button, Select, MenuItem, Paper } from "@mui/material";
+import {
+  Box,
+  Button,
+  Select,
+  MenuItem,
+  Paper,
+  Typography,
+  useTheme,
+} from "@mui/material";
 import axios from "axios";
 import ErrorHandler from "./ErrorHandler";
 import LoadingSpinner from "./LoadingSpinner";
+
 const BACKEND_URL =
   process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
-const initialCode = {
-  python: '# Write your Python code here\nprint("Hello World!")',
-  javascript: '// Write your JavaScript code here\nconsole.log("Hello World!")',
+
+const initialState = {
+  language: "python",
+  code: "# Write your Python code here\nprint('Hello, World!')",
+  output: "",
+  loading: false,
+  error: null,
+  executionTime: null,
+  history: [],
+  backendStatus: "checking",
 };
 
 const CodeEditor = () => {
-  const [language, setLanguage] = useState("python");
-  const [output, setOutput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [code, setCode] = useState(initialCode.python);
-  const [executionTime, setExecutionTime] = useState(null);
+  const theme = useTheme();
+  const [state, setState] = useState(initialState);
 
-  const handleExecute = async () => {
-    setLoading(true);
-    setError(null);
-    setExecutionTime(null);
+  const updateState = useCallback((updates) => {
+    setState((prev) => ({ ...prev, ...updates }));
+  }, []);
+
+  useEffect(() => {
+    const checkBackendStatus = async () => {
+      try {
+        await axios.get(`${BACKEND_URL}/health`);
+        updateState({ backendStatus: "online" });
+      } catch (error) {
+        updateState({ backendStatus: "offline" });
+      }
+    };
+
+    checkBackendStatus();
+    const statusInterval = setInterval(checkBackendStatus, 30000);
+    return () => clearInterval(statusInterval);
+  }, [updateState]);
+
+  const handleExecute = useCallback(async () => {
+    updateState({ loading: true, error: null });
     const startTime = performance.now();
+
     try {
       const response = await axios.post(`${BACKEND_URL}/code/run`, {
-        language,
-        code,
+        language: state.language,
+        code: state.code,
       });
-      const endTime = performance.now();
-      setExecutionTime(endTime - startTime);
-      if (response.data.success) {
-        setOutput(response.data.output);
+
+      const executionTime = (performance.now() - startTime) / 1000;
+
+      if (response.data.output) {
+        updateState({
+          output: response.data.output,
+          executionTime,
+          history: [
+            {
+              code: state.code,
+              language: state.language,
+              timestamp: new Date().toISOString(),
+              output: response.data.output,
+            },
+            ...state.history.slice(0, 9),
+          ],
+        });
       } else {
-        setError({ message: response.data.error || "Execution failed" });
+        throw new Error(response.data.error || "No output received");
       }
     } catch (error) {
-      console.error("Execution error:", error);
-      setError({
-        message: error.response?.data?.error || "Server connection failed",
+      updateState({
+        error: {
+          message:
+            error.response?.data?.error || error.message || "Execution failed",
+        },
       });
     } finally {
-      setLoading(false);
+      updateState({ loading: false });
     }
-  };
+  }, [state.code, state.language, state.history, updateState]);
 
-  const handleLanguageChange = (newLang) => {
-    setLanguage(newLang);
-    setCode(initialCode[newLang]);
-  };
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        handleExecute();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [handleExecute]);
+
+  const handleReset = useCallback(() => {
+    updateState({
+      code: initialState.code,
+      output: "",
+      error: null,
+      executionTime: null,
+    });
+  }, [updateState]);
 
   return (
-    <Box sx={{ p: 2 }}>
-      <ErrorHandler error={error} onClose={() => setError(null)} />
-      <LoadingSpinner isLoading={loading} />
-      <Box sx={{ mb: 2 }}>
+    <Box
+      sx={{ p: 2, height: "100vh", display: "flex", flexDirection: "column" }}
+    >
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
         <Select
-          value={language}
-          onChange={(e) => handleLanguageChange(e.target.value)}
-          sx={{ mr: 2 }}
+          value={state.language}
+          onChange={(e) => updateState({ language: e.target.value })}
+          size="small"
         >
           <MenuItem value="python">Python</MenuItem>
           <MenuItem value="javascript">JavaScript</MenuItem>
         </Select>
-        <Button variant="contained" onClick={handleExecute} disabled={loading}>
-          Run Code
-        </Button>
       </Box>
 
-      <Paper sx={{ mb: 2 }}>
+      <Box sx={{ flex: 1, minHeight: 0 }}>
         <Editor
-          height="400px"
-          language={language}
-          value={code}
-          onChange={setCode}
-          theme="vs-dark"
+          height="100%"
+          language={state.language}
+          value={state.code}
+          onChange={(value) => updateState({ code: value })}
+          theme={theme.palette.mode === "dark" ? "vs-dark" : "light"}
           options={{
             minimap: { enabled: false },
             fontSize: 14,
+            wordWrap: "on",
+            lineNumbers: "on",
+            folding: true,
+            automaticLayout: true,
           }}
         />
-      </Paper>
+      </Box>
 
-      <Paper sx={{ p: 2, bgcolor: error ? "#fde8e8" : "#f5f5f5" }}>
-        <pre style={{ margin: 0, color: error ? "#c62828" : "inherit" }}>
-          {output || "No output"}
-        </pre>
-        {executionTime !== null && (
-          <Box sx={{ mt: 1 }}>
-            <strong>Execution Time:</strong> {executionTime.toFixed(2)} ms
-          </Box>
+      <Box sx={{ mt: 2, display: "flex", gap: 1, alignItems: "center" }}>
+        <Button
+          variant="contained"
+          onClick={handleExecute}
+          disabled={state.loading || state.backendStatus !== "online"}
+        >
+          Run Code (Ctrl+Enter)
+        </Button>
+        <Button variant="outlined" onClick={handleReset}>
+          Reset
+        </Button>
+        {state.backendStatus === "offline" && (
+          <Typography color="error" variant="body2">
+            Backend server is offline
+          </Typography>
         )}
-      </Paper>
-      <Button
-        variant="outlined"
-        onClick={() => {
-          setCode(initialCode[language]);
-          setOutput("");
-          setError(null);
-          setExecutionTime(null);
-        }}
-        sx={{ ml: 1 }}
-      >
-        Reset
-      </Button>
+      </Box>
+
+      {state.loading && <LoadingSpinner />}
+      <ErrorHandler
+        error={state.error}
+        onClose={() => updateState({ error: null })}
+      />
+
+      {(state.output || state.error) && (
+        <Paper
+          sx={{
+            mt: 2,
+            p: 2,
+            bgcolor: state.error ? "error.light" : "background.paper",
+            maxHeight: "30vh",
+            overflow: "auto",
+          }}
+        >
+          <Typography component="pre" sx={{ m: 0, fontFamily: "monospace" }}>
+            {state.output || state.error?.message}
+          </Typography>
+          {state.executionTime && (
+            <Typography variant="caption" sx={{ mt: 1, display: "block" }}>
+              Execution time: {state.executionTime.toFixed(3)}s
+            </Typography>
+          )}
+        </Paper>
+      )}
     </Box>
   );
 };
