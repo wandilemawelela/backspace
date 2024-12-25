@@ -2,29 +2,44 @@ import React, { useState } from "react";
 import Editor from "@monaco-editor/react";
 import { Box, Button, Select, MenuItem, Paper } from "@mui/material";
 import axios from "axios";
+import ErrorHandler from "./ErrorHandler";
+import LoadingSpinner from "./LoadingSpinner";
+const BACKEND_URL =
+  process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
 
 const CodeEditor = () => {
   const [language, setLanguage] = useState("python");
   const [code, setCode] = useState("");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleExecute = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await axios.post("http://localhost:3001/code/run", {
+      const response = await axios.post(`${BACKEND_URL}/code/run`, {
         language,
         code,
       });
-      setOutput(response.data.output);
+      if (response.data.success) {
+        setOutput(response.data.output);
+      } else {
+        setError({ message: response.data.error || "Execution failed" });
+      }
     } catch (error) {
-      setOutput(error.response?.data?.error || "Execution failed");
+      console.error("Execution error:", error);
+      setError({
+        message: error.response?.data?.error || "Server connection failed",
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
     <Box sx={{ p: 2 }}>
+      <ErrorHandler error={error} onClose={() => setError(null)} />
       <Box sx={{ mb: 2 }}>
         <Select
           value={language}

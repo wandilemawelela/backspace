@@ -1,21 +1,13 @@
 services:
   backend:
-    build: ./backend
+    environment:
+      - FRONTEND_URL=http://localhost:3000
     ports:
       - "3001:3001"
-    stdin_open: true
-    tty: true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./backend:/app
 
   frontend:
-    build: ./frontend
-    ports:
-      - "3000:3000"
-    stdin_open: true
-    tty: true
-    depends_on:
-      - backend
     environment:
-      - REACT_APP_BACKEND_URL=http://backend:3001
+      - REACT_APP_BACKEND_URL=http://localhost:3001
