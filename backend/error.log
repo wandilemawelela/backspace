@@ -7,3 +7,9 @@
 {"containerId":"3e92d75eb1f0e65a73d91cecd96dc9069695186527366b627a542cf770989b0a","error":"(HTTP code 304) container already stopped -  ","level":"error","message":"Container cleanup failed"}
 {"duration":1.618,"error":"Cannot read property 'usage' of undefined","language":"python","level":"error","message":"Code execution failed"}
 {"duration":9.69,"error":"Code execution timed out","language":"python","level":"error","message":"Code execution failed"}
+{"duration":0.004,"error":"connect ENOENT /var/run/docker.sock","language":"python","level":"error","message":"Code execution failed"}
+{"duration":0.014,"error":"(HTTP code 404) no such container - No such image: python:3.8 ","language":"python","level":"error","message":"Code execution failed"}
+{"duration":0.002,"error":"(HTTP code 404) no such container - No such image: node:14 ","language":"javascript","level":"error","message":"Code execution failed"}
+{"duration":0.014,"error":"(HTTP code 404) no such container - No such image: python:3.8 ","language":"python","level":"error","message":"Code execution failed"}
+{"duration":0.004,"error":"(HTTP code 404) no such container - No such image: node:14 ","language":"javascript","level":"error","message":"Code execution failed"}
+{"duration":0.003,"error":"(HTTP code 404) no such container - No such image: python:3.8 ","language":"python","level":"error","message":"Code execution failed"}

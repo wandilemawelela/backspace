@@ -1,4 +1,4 @@
-FROM node:14
+FROM node:20
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ WORKDIR /app
 #    usermod -aG docker node
 
 COPY package.json /app
-RUN npm install
+RUN npm install -g npm@latest
 
 COPY . /app
 

@@ -14,3 +14,17 @@
 {"duration":9.69,"error":"Code execution timed out","language":"python","level":"error","message":"Code execution failed"}
 {"duration":9.692,"language":"python","level":"info","message":"Code execution completed","status":408}
 {"duration":2.03,"language":"python","level":"info","message":"Code execution completed","status":200}
+{"duration":0.004,"error":"connect ENOENT /var/run/docker.sock","language":"python","level":"error","message":"Code execution failed"}
+{"duration":0.009,"language":"python","level":"info","message":"Code execution completed","status":500}
+{"duration":0.014,"error":"(HTTP code 404) no such container - No such image: python:3.8 ","language":"python","level":"error","message":"Code execution failed"}
+{"duration":0.019,"language":"python","level":"info","message":"Code execution completed","status":500}
+{"duration":0.002,"error":"(HTTP code 404) no such container - No such image: node:14 ","language":"javascript","level":"error","message":"Code execution failed"}
+{"duration":0.003,"language":"javascript","level":"info","message":"Code execution completed","status":500}
+{"duration":0.014,"error":"(HTTP code 404) no such container - No such image: python:3.8 ","language":"python","level":"error","message":"Code execution failed"}
+{"duration":0.02,"language":"python","level":"info","message":"Code execution completed","status":500}
+{"duration":0.004,"error":"(HTTP code 404) no such container - No such image: node:14 ","language":"javascript","level":"error","message":"Code execution failed"}
+{"duration":0.006,"language":"javascript","level":"info","message":"Code execution completed","status":500}
+{"duration":0.003,"error":"(HTTP code 404) no such container - No such image: python:3.8 ","language":"python","level":"error","message":"Code execution failed"}
+{"duration":0.006,"language":"python","level":"info","message":"Code execution completed","status":500}
+{"duration":2.596,"language":"python","level":"info","message":"Code execution completed","status":200}
+{"duration":2.845,"language":"javascript","level":"info","message":"Code execution completed","status":200}
