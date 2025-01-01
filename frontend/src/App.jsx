@@ -2,7 +2,6 @@ import React from "react";
 import { Container, Typography, Box } from "@mui/material";
 import CodeEditor from "./components/CodeEditor";
 import ErrorBoundary from "./components/ErrorHandler";
-import LanguageSelector from "./components/LanguageSelector";
 
 const App = () => {
   return (

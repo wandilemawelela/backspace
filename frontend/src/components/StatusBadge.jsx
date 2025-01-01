@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Chip } from "@mui/material";
+import axios from "axios";
 
 const StatusBadge = () => {
   const [status, setStatus] = useState("checking");
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
 
   useEffect(() => {
     const checkHealth = async () => {
