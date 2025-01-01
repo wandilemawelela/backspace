@@ -51,6 +51,10 @@ router.post(
     };
 
     try {
+      if (!(await docker.listImages()).find(img => img.RepoTags?.includes(images[language].image))) {
+        await pullImage(images[language].image);
+      }
+
       container = await docker.createContainer({
         Image: images[language].image,
         Cmd:
@@ -164,5 +168,22 @@ router.get("/metrics", async (req, res) => {
   res.set("Content-Type", promClient.register.contentType);
   res.end(await promClient.register.metrics());
 });
+
+const pullImage = async (imageName) => {
+  try {
+    await new Promise((resolve, reject) => {
+      docker.pull(imageName, (err, stream) => {
+        if (err) return reject(err);
+        docker.modem.followProgress(stream, (err) => {
+          if (err) return reject(err);
+          resolve();
+        });
+      });
+    });
+  } catch (error) {
+    logger.error(`Failed to pull image ${imageName}`, { error: error.message });
+    throw error;
+  }
+};
 
 module.exports = router;
