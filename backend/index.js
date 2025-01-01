@@ -5,6 +5,7 @@ const codeRouter = require("./routes/code");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const healthRouter = require("./routes/health");
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -36,6 +37,7 @@ app.get("/health", (req, res) => {
 
 // Routes
 app.use("/code", codeRouter);
+app.use("/health", healthRouter);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
