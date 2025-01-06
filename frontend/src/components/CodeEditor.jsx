@@ -12,6 +12,7 @@ import {
 import axios from "axios";
 import ErrorHandler from "./ErrorHandler";
 import LoadingSpinner from "./LoadingSpinner";
+import ExecutionHistory from "./ExecutionHistory";
 
 const BACKEND_URL =
   process.env.REACT_APP_BACKEND_URL || "http://localhost:3001";
@@ -30,6 +31,7 @@ const initialState = {
 const CodeEditor = () => {
   const theme = useTheme();
   const [state, setState] = useState(initialState);
+  const [analysis, setAnalysis] = useState(null);
 
   const updateState = useCallback((updates) => {
     setState((prev) => ({ ...prev, ...updates }));
@@ -55,6 +57,7 @@ const CodeEditor = () => {
     const startTime = performance.now();
 
     try {
+      // Remove analysis step and directly execute code
       const response = await axios.post(`${BACKEND_URL}/code/run`, {
         language: state.language,
         code: state.code,
@@ -82,8 +85,7 @@ const CodeEditor = () => {
     } catch (error) {
       updateState({
         error: {
-          message:
-            error.response?.data?.error || error.message || "Execution failed",
+          message: error.response?.data?.error || error.message || "Execution failed",
         },
       });
     } finally {
@@ -188,6 +190,17 @@ const CodeEditor = () => {
           )}
         </Paper>
       )}
+
+      {analysis && (
+        <Paper sx={{ mt: 2, p: 2 }}>
+          <Typography variant="h6">Code Analysis</Typography>
+          <Typography>Complexity: {analysis.complexity}</Typography>
+          <Typography>Lines: {analysis.lineCount}</Typography>
+          {/* Display suggestions and security issues */}
+        </Paper>
+      )}
+
+      <ExecutionHistory history={state.history} />
     </Box>
   );
 };

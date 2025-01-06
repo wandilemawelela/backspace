@@ -4,13 +4,15 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "jest --detectOpenHandles --forceExit --runInBand"
+    "test": "jest --detectOpenHandles --forceExit --runInBand",
+    "clean": "docker system prune -af",
+    "clean:volumes": "docker volume prune -f"
   },
   "jest": {
     "testTimeout": 30000
   },
   "dependencies": {
-    "body-parser": "^1.19.0",
+    "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "dockerode": "^3.3.5",
     "dotenv": "^16.4.7",

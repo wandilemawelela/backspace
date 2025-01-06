@@ -1,17 +1,16 @@
-FROM node:20
+FROM node:16-alpine
 
 WORKDIR /app
 
-# Add docker group and set permissions
-#RUN apt-get update && \
-#    apt-get install -y docker.io && \
-#    groupadd -g 999 docker && \
-#    usermod -aG docker node
+# Copy package files first
+COPY package*.json ./
 
-COPY package.json /app
-RUN npm install -g npm@latest
+# Install dependencies without updating npm globally
+RUN npm install
 
-COPY . /app
+COPY . .
+
+EXPOSE 3000
 
 CMD ["npm", "start"]
 

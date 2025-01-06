@@ -1,17 +1,19 @@
-FROM node:16
+FROM node:16-alpine
 
 WORKDIR /app
 
-# Add docker group and set permissions
-#RUN apt-get update && \
-#    apt-get install -y docker.io && \
-#    groupadd -g 999 docker && \
-#    usermod -aG docker node
+# Copy package files first
+COPY package*.json ./
 
-COPY package.json /app
+# Install dependencies with npm install instead of npm ci
 RUN npm install
 
-COPY . /app
+COPY . .
+
+# Clean npm cache
+RUN npm cache clean --force
+
+EXPOSE 3001
 
 CMD ["node", "index.js"]
 

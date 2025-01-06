@@ -2,14 +2,13 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-    environment:
-      - FRONTEND_URL=http://localhost:3000
-    ports:
-      - "3001:3001"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./backend:/app
+    privileged: true
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "3001:3001"
 
   frontend:
     build:

@@ -1,7 +1,7 @@
 const request = require("supertest");
 const express = require("express");
 const Docker = require("dockerode");
-const codeRouter = require("../routes/code");
+const { router: codeRouter } = require("../routes/code");
 
 describe("Code Execution Service", () => {
   let app;

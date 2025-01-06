@@ -41,17 +41,31 @@ router.post(
   validate,
   monitorExecution,
   async (req, res) => {
+    console.log('Received code execution request:', {
+      language: req.body.language,
+      codeLength: req.body.code.length
+    });
+
     const { language, code } = req.body;
     let container = null;
     const startTime = Date.now();
 
     const images = {
-      javascript: { image: "node:14", memoryLimit: 100 * 1024 * 1024 },
-      python: { image: "python:3.8", memoryLimit: 100 * 1024 * 1024 },
+      javascript: { image: "node:16-alpine", memoryLimit: 100 * 1024 * 1024 },
+      python: { image: "python:3.8-alpine", memoryLimit: 100 * 1024 * 1024 },
     };
 
     try {
-      if (!(await docker.listImages()).find(img => img.RepoTags?.includes(images[language].image))) {
+      console.log('Checking for image:', images[language].image);
+      const imageList = await docker.listImages();
+      console.log('Available images:', imageList.map(img => img.RepoTags));
+      
+      const imageExists = imageList.some(img => 
+        img.RepoTags && img.RepoTags.includes(images[language].image)
+      );
+
+      if (!imageExists) {
+        console.log(`Image ${images[language].image} not found, pulling...`);
         await pullImage(images[language].image);
       }
 
@@ -171,19 +185,65 @@ router.get("/metrics", async (req, res) => {
 
 const pullImage = async (imageName) => {
   try {
+    console.log(`Starting pull for image: ${imageName}`);
     await new Promise((resolve, reject) => {
       docker.pull(imageName, (err, stream) => {
-        if (err) return reject(err);
-        docker.modem.followProgress(stream, (err) => {
-          if (err) return reject(err);
-          resolve();
-        });
+        if (err) {
+          console.error(`Pull error: ${err}`);
+          return reject(err);
+        }
+        
+        docker.modem.followProgress(stream, 
+          (err, output) => {
+            if (err) {
+              console.error(`Follow error: ${err}`);
+              return reject(err);
+            }
+            console.log(`Successfully pulled ${imageName}`);
+            resolve(output);
+          },
+          (event) => console.log(`Pull progress: ${JSON.stringify(event)}`)
+        );
       });
     });
   } catch (error) {
-    logger.error(`Failed to pull image ${imageName}`, { error: error.message });
+    console.error(`Failed to pull image ${imageName}:`, error);
     throw error;
   }
 };
 
-module.exports = router;
+const ensureImages = async () => {
+  const requiredImages = [
+    "node:16-alpine",
+    "python:3.8-alpine"
+  ];
+
+  for (const image of requiredImages) {
+    try {
+      const images = await docker.listImages();
+      const exists = images.some(img => img.RepoTags?.includes(image));
+      
+      if (!exists) {
+        await new Promise((resolve, reject) => {
+          docker.pull(image, (err, stream) => {
+            if (err) return reject(err);
+            
+            docker.modem.followProgress(stream, (err, output) => {
+              if (err) return reject(err);
+              resolve(output);
+            });
+          });
+        });
+      }
+    } catch (error) {
+      console.error(`Error ensuring image ${image}:`, error);
+      throw error;
+    }
+  }
+};
+
+// Export both the router and ensureImages function
+module.exports = {
+  router,
+  ensureImages
+};
