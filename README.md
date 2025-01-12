@@ -217,11 +217,6 @@ cd backend
 npm test
 ```
 
-Key test suites:
-
--
--
-
 ### Frontend Tests
 
 ### Performance Optimization
